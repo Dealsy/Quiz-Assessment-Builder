@@ -197,14 +197,151 @@ Using ProseMirror's collaboration module for efficient version control:
 
 ### Branch View
 
-Visual representation of branch relationships.
+Visual representation of branch relationships using ReactFlow.
 
 **Components:**
 
-- BranchFlow: ReactFlow implementation
-- BranchNode: Individual branch representation
-- BranchConnector: Visual connection between nodes
-- BranchControls: Zoom, centre, etc.
+- BranchFlow: ReactFlow implementation for branch visualization
+
+  ```typescript
+  type VersionNode = {
+    id: string;
+    type: "versionNode";
+    position: { x: number; y: number };
+    data: {
+      version: Version;
+      branchName: string;
+      isSelected: boolean;
+      onSelect: () => void;
+      branchCount: number; // Number of branches from this version
+    };
+  };
+
+  type BranchEdge = {
+    id: string;
+    source: string;
+    target: string;
+    type: "smoothstep"; // Curved lines for better visualization
+    sourceHandle: Position;
+    targetHandle: Position;
+    data: {
+      isBranchPoint: boolean;
+    };
+  };
+
+  type BranchLayout = {
+    parentVersionId: string;
+    branchCount: number; // Number of branches from this version
+    branchIndex: number; // This branch's index among siblings
+    level: number; // Branch depth in hierarchy
+  };
+
+  type NodePosition = {
+    x: number; // Horizontal position (time-based)
+    y: number; // Vertical position (branch level)
+    level: number; // Branch depth level
+    offset: number; // Vertical offset for multiple branches
+  };
+  ```
+
+**Layout Algorithm:**
+
+```typescript
+const calculateNodePosition = (
+  versionIndex: number,
+  branchLevel: number,
+  branchOffset: number,
+  spacing: {
+    x: number; // Horizontal spacing between versions
+    y: number; // Vertical spacing between branches
+    branchPadding: number; // Extra padding for multiple branches
+  }
+) => ({
+  x: versionIndex * spacing.x,
+  y: branchLevel * spacing.y + branchOffset * spacing.branchPadding,
+});
+```
+
+**Multi-Branch Handling:**
+
+- Multiple branches can originate from any version node
+- Vertical spacing automatically adjusts for:
+  - Number of child branches
+  - Branch hierarchy depth
+  - Sibling branch relationships
+- Edge routing optimized for:
+  - Clear visual paths
+  - Minimal crossing
+  - Branch point indication
+
+**Layout Structure:**
+
+- Horizontal timeline layout
+- Left-to-right progression for versions
+- Downward branching with automatic offsets
+- Automatic positioning based on:
+  - Version index within branch
+  - Branch level in hierarchy
+  - Number of sibling branches
+  - Parent-child relationships
+
+**Visual Hierarchy:**
+
+- Main branch at top level
+- Child branches flow downward with calculated offsets
+- Multiple branches from same version are:
+  - Evenly spaced
+  - Clearly connected
+  - Visually distinct
+- Clear visual distinction between:
+  - Regular version connections
+  - Branch point connections
+  - Selected versions
+  - Current active version
+  - Multiple branches from same point
+
+**Branch Point Visualization:**
+
+- Version nodes show branch count indicator
+- Visual feedback for potential branch points
+- Clear indication of:
+  - Source version
+  - Branch relationships
+  - Sibling branches
+  - Branch hierarchy
+
+**Performance Optimizations:**
+
+- Memoized layout calculations
+- Efficient node positioning
+- Smart edge routing
+- Virtualized rendering for large graphs
+- Optimized re-renders
+
+**Interaction Model:**
+
+- Click version node to select
+- Hover for version details including:
+  - Branch count
+  - Version metadata
+  - Available actions
+- Pan and zoom for navigation
+- Version nodes show:
+  - Version number
+  - Timestamp
+  - Branch name
+  - Selection state
+  - Number of child branches
+
+**Implementation Details:**
+
+- Custom node types for versions
+- Custom edge types with smart routing
+- Automatic layout calculation
+- Responsive positioning
+- Interactive controls
+- Branch relationship tracking
+- Sibling branch management
 
 ### Editor View
 
