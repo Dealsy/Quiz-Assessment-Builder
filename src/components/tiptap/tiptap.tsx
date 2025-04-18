@@ -7,15 +7,18 @@ import {
 import StarterKit from "@tiptap/starter-kit";
 import { WordCount } from "./word-count";
 import Toolbar from "./toolbar";
-const extensions = [StarterKit];
 
-const content = "<p>Hello World!</p>";
+type TiptapProps = {
+  editor?: ReturnType<typeof useEditor>;
+};
 
-const Tiptap = () => {
-  const editor = useEditor({
-    extensions,
-    content,
+export default function Tiptap({ editor: externalEditor }: TiptapProps) {
+  const internalEditor = useEditor({
+    extensions: [StarterKit],
+    content: "<p>Hello World!</p>",
   });
+
+  const editor = externalEditor || internalEditor;
 
   if (!editor) {
     return null;
@@ -41,6 +44,4 @@ const Tiptap = () => {
       </div>
     </div>
   );
-};
-
-export default Tiptap;
+}
