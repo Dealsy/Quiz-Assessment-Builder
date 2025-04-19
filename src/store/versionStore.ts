@@ -13,13 +13,22 @@ import { generateId } from "../utils/id";
 import { debounce } from "../utils/debounce";
 
 type VersionError = {
-  code: "VERSION_NOT_FOUND" | "INVALID_VERSION" | "CONTENT_CORRUPTED";
+  code:
+    | "VERSION_NOT_FOUND"
+    | "INVALID_VERSION"
+    | "CONTENT_CORRUPTED"
+    | "STORAGE_ERROR";
   message: string;
 };
 
 type Result<T> = {
   data?: T;
   error?: VersionError;
+};
+
+type StorageState = {
+  isStorageValid: boolean;
+  lastValidVersion: number;
 };
 
 type VersionStore = {
@@ -31,6 +40,7 @@ type VersionStore = {
   versions: Map<number, Version>;
   hasContent: boolean;
   isInitialEditing: boolean;
+  storageState: StorageState;
   saveVersion: (editorState: EditorState) => void;
   getVersionContent: (version: number) => Result<JSONContent>;
   getVersionRange: (
@@ -41,10 +51,39 @@ type VersionStore = {
   setDirty: (isDirty: boolean) => void;
   reset: () => void;
   setCurrentVersion: (version: number) => Result<void>;
+  validateStorage: () => StorageState;
+  recoverFromCorruption: () => Result<void>;
 };
 
 const STORAGE_KEY = "document-versions";
 const SAVE_DEBOUNCE_MS = 1000;
+
+const isValidVersion = (version: Version): boolean => {
+  return (
+    version &&
+    typeof version.timestamp === "string" &&
+    Array.isArray(version.steps) &&
+    version.content !== undefined
+  );
+};
+
+const validateStorage = (versions: Map<number, Version>): StorageState => {
+  let lastValidVersion = INITIAL_VERSION;
+  let isValid = true;
+
+  for (const [versionNum, version] of versions.entries()) {
+    if (!isValidVersion(version)) {
+      isValid = false;
+      break;
+    }
+    lastValidVersion = versionNum;
+  }
+
+  return {
+    isStorageValid: isValid,
+    lastValidVersion,
+  };
+};
 
 const validateVersion = (
   version: number,
@@ -121,137 +160,211 @@ const persistOptions: PersistOptions<VersionStore> = {
 };
 
 export const useVersionStore = create<VersionStore>()(
-  persist((set, get) => {
-    const debouncedSave = debounce<EditorState>((editorState) => {
-      saveVersion(editorState, get, set);
-      set({ isInitialEditing: false });
-    }, SAVE_DEBOUNCE_MS);
+  persist(
+    (set, get) => {
+      const debouncedSave = debounce<EditorState>((editorState) => {
+        saveVersion(editorState, get, set);
+        set({ isInitialEditing: false });
+      }, SAVE_DEBOUNCE_MS);
 
-    return {
-      currentVersion: INITIAL_VERSION,
-      steps: [],
-      lastSaved: new Date(),
-      isDirty: false,
-      documentState: null,
-      versions: new Map(),
-      hasContent: false,
-      isInitialEditing: true,
+      return {
+        currentVersion: INITIAL_VERSION,
+        steps: [],
+        lastSaved: new Date(),
+        isDirty: false,
+        documentState: null,
+        versions: new Map(),
+        hasContent: false,
+        isInitialEditing: true,
+        storageState: {
+          isStorageValid: true,
+          lastValidVersion: INITIAL_VERSION,
+        },
 
-      saveVersion: (editorState: EditorState) => {
-        debouncedSave(editorState);
-        if (!get().hasContent) {
-          set({ hasContent: true });
-        }
-        set({ isDirty: true });
-      },
+        validateStorage: () => {
+          const state = validateStorage(get().versions);
+          set({ storageState: state });
+          return state;
+        },
 
-      getVersionContent: (version: number) => {
-        if (!get().hasContent || get().isInitialEditing) {
-          return { data: undefined };
-        }
+        recoverFromCorruption: () => {
+          const { versions, storageState } = get();
+          if (storageState.isStorageValid) {
+            return {};
+          }
 
-        const error = validateVersion(version, get().currentVersion);
-        if (error) {
-          return { error };
-        }
+          // Keep only valid versions
+          const validVersions = new Map();
+          for (
+            let v = INITIAL_VERSION;
+            v <= storageState.lastValidVersion;
+            v++
+          ) {
+            const version = versions.get(v);
+            if (version && isValidVersion(version)) {
+              validVersions.set(v, version);
+            }
+          }
 
-        const versionData = get().versions.get(version);
-        if (!versionData) {
-          return {
-            error: {
-              code: "VERSION_NOT_FOUND",
-              message: `Version ${version} content not found`,
-            },
-          };
-        }
-
-        if (!versionData.content) {
-          return {
-            error: {
-              code: "CONTENT_CORRUPTED",
-              message: `Version ${version} content is corrupted`,
-            },
-          };
-        }
-
-        return { data: versionData.content };
-      },
-
-      getVersionRange: (fromVersion: number, toVersion: number) => {
-        const error =
-          validateVersion(fromVersion, get().currentVersion) ||
-          validateVersion(toVersion, get().currentVersion);
-
-        if (error) {
-          return { error };
-        }
-
-        if (fromVersion > toVersion) {
-          return {
-            error: {
-              code: "INVALID_VERSION",
-              message: "Start version cannot be greater than end version",
-            },
-          };
-        }
-
-        const versions: Version[] = [];
-        for (let v = fromVersion; v <= toVersion; v++) {
-          const version = get().versions.get(v);
-          if (!version) {
+          if (validVersions.size === 0) {
+            set({
+              versions: new Map(),
+              currentVersion: INITIAL_VERSION,
+              hasContent: false,
+              isInitialEditing: true,
+            });
             return {
               error: {
-                code: "VERSION_NOT_FOUND",
-                message: `Version ${v} not found in range ${fromVersion}-${toVersion}`,
+                code: "STORAGE_ERROR",
+                message: "Storage was corrupted. All content has been reset.",
               },
             };
           }
-          versions.push(version);
+
+          set({
+            versions: validVersions,
+            currentVersion: storageState.lastValidVersion,
+            hasContent: true,
+            isInitialEditing: false,
+          });
+
+          return {
+            error: {
+              code: "STORAGE_ERROR",
+              message: `Recovered to last valid version: ${storageState.lastValidVersion}`,
+            },
+          };
+        },
+
+        saveVersion: (editorState: EditorState) => {
+          debouncedSave(editorState);
+          if (!get().hasContent) {
+            set({ hasContent: true });
+          }
+          set({ isDirty: true });
+        },
+
+        getVersionContent: (version: number) => {
+          if (!get().hasContent || get().isInitialEditing) {
+            return { data: undefined };
+          }
+
+          const error = validateVersion(version, get().currentVersion);
+          if (error) {
+            return { error };
+          }
+
+          const versionData = get().versions.get(version);
+          if (!versionData) {
+            return {
+              error: {
+                code: "VERSION_NOT_FOUND",
+                message: `Version ${version} content not found`,
+              },
+            };
+          }
+
+          if (!isValidVersion(versionData)) {
+            return {
+              error: {
+                code: "CONTENT_CORRUPTED",
+                message: `Version ${version} content is corrupted`,
+              },
+            };
+          }
+
+          return { data: versionData.content };
+        },
+
+        getVersionRange: (fromVersion: number, toVersion: number) => {
+          const error =
+            validateVersion(fromVersion, get().currentVersion) ||
+            validateVersion(toVersion, get().currentVersion);
+
+          if (error) {
+            return { error };
+          }
+
+          if (fromVersion > toVersion) {
+            return {
+              error: {
+                code: "INVALID_VERSION",
+                message: "Start version cannot be greater than end version",
+              },
+            };
+          }
+
+          const versions: Version[] = [];
+          for (let v = fromVersion; v <= toVersion; v++) {
+            const version = get().versions.get(v);
+            if (!version) {
+              return {
+                error: {
+                  code: "VERSION_NOT_FOUND",
+                  message: `Version ${v} not found in range ${fromVersion}-${toVersion}`,
+                },
+              };
+            }
+            versions.push(version);
+          }
+
+          return { data: versions };
+        },
+
+        applyStep: (step: PMStep) => {
+          const newStep: Step = {
+            id: generateId(),
+            version: get().currentVersion,
+            timestamp: new Date().toISOString(),
+            step,
+          };
+
+          set((state) => ({
+            steps: [...state.steps, newStep],
+            isDirty: true,
+          }));
+        },
+
+        setDirty: (isDirty: boolean) => {
+          set({ isDirty });
+        },
+
+        reset: () => {
+          set({
+            currentVersion: INITIAL_VERSION,
+            steps: [],
+            lastSaved: new Date(),
+            isDirty: false,
+            documentState: null,
+            versions: new Map(),
+            hasContent: false,
+            isInitialEditing: true,
+          });
+        },
+
+        setCurrentVersion: (version: number) => {
+          const error = validateVersion(version, get().currentVersion);
+          if (error) {
+            return { error };
+          }
+
+          set({ currentVersion: version });
+          return {};
+        },
+      };
+    },
+    {
+      ...persistOptions,
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          const storageState = validateStorage(state.versions);
+          state.storageState = storageState;
+
+          if (!storageState.isStorageValid) {
+            state.recoverFromCorruption();
+          }
         }
-
-        return { data: versions };
       },
-
-      applyStep: (step: PMStep) => {
-        const newStep: Step = {
-          id: generateId(),
-          version: get().currentVersion,
-          timestamp: new Date().toISOString(),
-          step,
-        };
-
-        set((state) => ({
-          steps: [...state.steps, newStep],
-          isDirty: true,
-        }));
-      },
-
-      setDirty: (isDirty: boolean) => {
-        set({ isDirty });
-      },
-
-      reset: () => {
-        set({
-          currentVersion: INITIAL_VERSION,
-          steps: [],
-          lastSaved: new Date(),
-          isDirty: false,
-          documentState: null,
-          versions: new Map(),
-          hasContent: false,
-          isInitialEditing: true,
-        });
-      },
-
-      setCurrentVersion: (version: number) => {
-        const error = validateVersion(version, get().currentVersion);
-        if (error) {
-          return { error };
-        }
-
-        set({ currentVersion: version });
-        return {};
-      },
-    };
-  }, persistOptions)
+    }
+  )
 );
