@@ -11,6 +11,7 @@ import {
   serializeStep,
 } from "../types/version";
 import { debounce } from "../utils/debounce";
+import { ERROR_CODE, ERROR_MESSAGE, VERSION } from "@/constants";
 
 type VersionError = {
   code:
@@ -55,8 +56,8 @@ type VersionStore = {
   recoverFromCorruption: () => Result<void>;
 };
 
-const STORAGE_KEY = "document-versions";
-const SAVE_DEBOUNCE_MS = 1000;
+const STORAGE_KEY = VERSION.STORAGE_KEY;
+const SAVE_DEBOUNCE_MS = VERSION.SAVE_DEBOUNCE_MS;
 
 const isValidVersion = (version: Version): boolean => {
   return (
@@ -91,14 +92,14 @@ const validateVersion = (
 ): VersionError | undefined => {
   if (version < INITIAL_VERSION) {
     return {
-      code: "INVALID_VERSION",
-      message: `Version ${version} is invalid. Versions start at ${INITIAL_VERSION}`,
+      code: ERROR_CODE.INVALID_VERSION,
+      message: ERROR_MESSAGE.VERSION_INVALID(version),
     };
   }
   if (!versions.has(version)) {
     return {
-      code: "VERSION_NOT_FOUND",
-      message: `Version ${version} does not exist`,
+      code: ERROR_CODE.VERSION_NOT_FOUND,
+      message: ERROR_MESSAGE.VERSION_NOT_FOUND(version),
     };
   }
 };
@@ -214,8 +215,8 @@ export const useVersionStore = create<VersionStore>()(
             });
             return {
               error: {
-                code: "STORAGE_ERROR",
-                message: "Storage was corrupted. All content has been reset.",
+                code: ERROR_CODE.STORAGE_ERROR,
+                message: ERROR_MESSAGE.STORAGE_CORRUPTED,
               },
             };
           }
@@ -229,7 +230,7 @@ export const useVersionStore = create<VersionStore>()(
 
           return {
             error: {
-              code: "STORAGE_ERROR",
+              code: ERROR_CODE.STORAGE_ERROR,
               message: `Recovered to last valid version: ${storageState.lastValidVersion}`,
             },
           };
@@ -258,8 +259,8 @@ export const useVersionStore = create<VersionStore>()(
           if (!versionData) {
             return {
               error: {
-                code: "VERSION_NOT_FOUND",
-                message: `Version ${version} content not found`,
+                code: ERROR_CODE.VERSION_NOT_FOUND,
+                message: ERROR_MESSAGE.VERSION_CONTENT_NOT_FOUND(version),
               },
             };
           }
@@ -267,8 +268,8 @@ export const useVersionStore = create<VersionStore>()(
           if (!isValidVersion(versionData)) {
             return {
               error: {
-                code: "CONTENT_CORRUPTED",
-                message: `Version ${version} content is corrupted`,
+                code: ERROR_CODE.CONTENT_CORRUPTED,
+                message: ERROR_MESSAGE.CONTENT_CORRUPTED,
               },
             };
           }
@@ -288,8 +289,8 @@ export const useVersionStore = create<VersionStore>()(
           if (fromVersion > toVersion) {
             return {
               error: {
-                code: "INVALID_VERSION",
-                message: "Start version cannot be greater than end version",
+                code: ERROR_CODE.INVALID_VERSION,
+                message: ERROR_MESSAGE.START_GREATER_THAN_END,
               },
             };
           }
@@ -300,8 +301,8 @@ export const useVersionStore = create<VersionStore>()(
             if (!version) {
               return {
                 error: {
-                  code: "VERSION_NOT_FOUND",
-                  message: `Version ${v} not found in range ${fromVersion}-${toVersion}`,
+                  code: ERROR_CODE.VERSION_NOT_FOUND,
+                  message: ERROR_MESSAGE.VERSION_NOT_FOUND(v),
                 },
               };
             }
