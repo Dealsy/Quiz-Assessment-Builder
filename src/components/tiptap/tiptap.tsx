@@ -10,7 +10,7 @@ import { WordCount } from "./word-count";
 import Toolbar from "./toolbar";
 import { useVersionStore } from "../../store/versionStore";
 import { format } from "date-fns";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { Transaction } from "@tiptap/pm/state";
 import { Step } from "prosemirror-transform";
 
@@ -54,6 +54,16 @@ export default function Tiptap({ editor: externalEditor }: TiptapProps) {
   });
 
   const editor = externalEditor || internalEditor;
+
+  // Sync editor content with current version
+  useEffect(() => {
+    if (editor && hasContent && !isInitialEditing) {
+      const content = getVersionContent(currentVersion);
+      if (content.data) {
+        editor.commands.setContent(content.data);
+      }
+    }
+  }, [editor, currentVersion, getVersionContent, hasContent, isInitialEditing]);
 
   if (!editor) {
     return null;
