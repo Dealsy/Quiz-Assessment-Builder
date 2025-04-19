@@ -3,26 +3,41 @@ import {
   useEditor,
   FloatingMenu,
   BubbleMenu,
+  Editor,
 } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { WordCount } from "./word-count";
 import Toolbar from "./toolbar";
 import { useVersionStore } from "../../store/versionStore";
 import { format } from "date-fns";
+import { useCallback } from "react";
 
 type TiptapProps = {
   editor?: ReturnType<typeof useEditor>;
 };
 
 export default function Tiptap({ editor: externalEditor }: TiptapProps) {
-  const { currentVersion, lastSaved, isDirty, saveVersion } = useVersionStore();
+  const {
+    currentVersion,
+    lastSaved,
+    isDirty,
+    saveVersion,
+    getVersionContent,
+    hasContent,
+    isInitialEditing,
+  } = useVersionStore();
+
+  const handleEditorUpdate = useCallback(
+    ({ editor }: { editor: Editor }) => {
+      saveVersion(editor.state);
+    },
+    [saveVersion]
+  );
 
   const internalEditor = useEditor({
     extensions: [StarterKit],
     content: "<p>Hello World!</p>",
-    onUpdate: ({ editor }) => {
-      saveVersion(editor.state);
-    },
+    onUpdate: handleEditorUpdate,
   });
 
   const editor = externalEditor || internalEditor;
@@ -31,22 +46,37 @@ export default function Tiptap({ editor: externalEditor }: TiptapProps) {
     return null;
   }
 
+  const versionResult = getVersionContent(currentVersion);
+  const hasError = versionResult.error !== undefined;
+
   return (
     <div className="p-6 max-w-4xl mx-auto mt-24 border-2 rounded-lg shadow-lg">
       <div className="rounded-lg border dark:border-gray-700 overflow-hidden">
         <div className="flex items-center justify-between p-2 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
           <Toolbar editor={editor} />
-          <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-            <span>Version {currentVersion}</span>
-            <span>•</span>
-            <span>
-              {isDirty ? (
-                "Saving..."
-              ) : (
-                <>Last saved: {format(lastSaved, "h:mm:ss a")}</>
+          {hasContent && (
+            <div className="flex items-center gap-4 text-sm">
+              {!isInitialEditing && (
+                <span className="text-gray-500 dark:text-gray-400">
+                  Version {currentVersion}
+                </span>
               )}
-            </span>
-          </div>
+              <span className="text-gray-300 dark:text-gray-600">•</span>
+              {isDirty ? (
+                <span className="text-gray-500 dark:text-gray-400">
+                  Saving...
+                </span>
+              ) : !isInitialEditing && hasError ? (
+                <span className="text-red-500 dark:text-red-400">
+                  {versionResult.error?.message}
+                </span>
+              ) : (
+                <span className="text-gray-500 dark:text-gray-400">
+                  Last saved: {format(lastSaved, "h:mm:ss a")}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <div className="relative">
           <EditorContent
