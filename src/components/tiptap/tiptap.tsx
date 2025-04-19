@@ -11,6 +11,8 @@ import Toolbar from "./toolbar";
 import { useVersionStore } from "../../store/versionStore";
 import { format } from "date-fns";
 import { useCallback } from "react";
+import { Transaction } from "@tiptap/pm/state";
+import { Step } from "prosemirror-transform";
 
 type TiptapProps = {
   editor?: ReturnType<typeof useEditor>;
@@ -25,17 +27,28 @@ export default function Tiptap({ editor: externalEditor }: TiptapProps) {
     getVersionContent,
     hasContent,
     isInitialEditing,
+    applyStep,
   } = useVersionStore();
 
   const handleEditorUpdate = useCallback(
-    ({ editor }: { editor: Editor }) => {
-      saveVersion(editor.state);
+    ({ editor, transaction }: { editor: Editor; transaction: Transaction }) => {
+      // Only track and save content changes
+      if (transaction.docChanged) {
+        transaction.steps.forEach((step: Step) => {
+          applyStep(step);
+        });
+        saveVersion(editor.state);
+      }
     },
-    [saveVersion]
+    [applyStep, saveVersion]
   );
 
   const internalEditor = useEditor({
-    extensions: [StarterKit],
+    extensions: [
+      StarterKit.configure({
+        history: false, // Disable history as we're using our own version control
+      }),
+    ],
     content: "<p>Hello World!</p>",
     onUpdate: handleEditorUpdate,
   });

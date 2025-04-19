@@ -8,8 +8,8 @@ import {
   DocumentState,
   INITIAL_VERSION,
   Version,
+  serializeStep,
 } from "../types/version";
-import { generateId } from "../utils/id";
 import { debounce } from "../utils/debounce";
 
 type VersionError = {
@@ -87,7 +87,7 @@ const validateStorage = (versions: Map<number, Version>): StorageState => {
 
 const validateVersion = (
   version: number,
-  maxVersion: number
+  versions: Map<number, Version>
 ): VersionError | undefined => {
   if (version < INITIAL_VERSION) {
     return {
@@ -95,10 +95,10 @@ const validateVersion = (
       message: `Version ${version} is invalid. Versions start at ${INITIAL_VERSION}`,
     };
   }
-  if (version > maxVersion) {
+  if (!versions.has(version)) {
     return {
-      code: "INVALID_VERSION",
-      message: `Version ${version} does not exist. Latest version is ${maxVersion}`,
+      code: "VERSION_NOT_FOUND",
+      message: `Version ${version} does not exist`,
     };
   }
 };
@@ -109,7 +109,6 @@ const saveVersion = (
   set: (state: Partial<VersionStore>) => void
 ) => {
   const { currentVersion, steps, versions } = get();
-  // Only increment if we already have content saved
   const newVersion = versions.size > 0 ? currentVersion + 1 : INITIAL_VERSION;
   const now = new Date();
 
@@ -249,12 +248,13 @@ export const useVersionStore = create<VersionStore>()(
             return { data: undefined };
           }
 
-          const error = validateVersion(version, get().currentVersion);
+          const { versions } = get();
+          const error = validateVersion(version, versions);
           if (error) {
             return { error };
           }
 
-          const versionData = get().versions.get(version);
+          const versionData = versions.get(version);
           if (!versionData) {
             return {
               error: {
@@ -278,8 +278,8 @@ export const useVersionStore = create<VersionStore>()(
 
         getVersionRange: (fromVersion: number, toVersion: number) => {
           const error =
-            validateVersion(fromVersion, get().currentVersion) ||
-            validateVersion(toVersion, get().currentVersion);
+            validateVersion(fromVersion, get().versions) ||
+            validateVersion(toVersion, get().versions);
 
           if (error) {
             return { error };
@@ -311,16 +311,10 @@ export const useVersionStore = create<VersionStore>()(
           return { data: versions };
         },
 
-        applyStep: (step: PMStep) => {
-          const newStep: Step = {
-            id: generateId(),
-            version: get().currentVersion,
-            timestamp: new Date().toISOString(),
-            step,
-          };
-
+        applyStep: (pmStep: PMStep) => {
+          const step = serializeStep(pmStep, get().currentVersion.toString());
           set((state) => ({
-            steps: [...state.steps, newStep],
+            steps: [...state.steps, step],
             isDirty: true,
           }));
         },
@@ -343,7 +337,8 @@ export const useVersionStore = create<VersionStore>()(
         },
 
         setCurrentVersion: (version: number) => {
-          const error = validateVersion(version, get().currentVersion);
+          const { versions } = get();
+          const error = validateVersion(version, versions);
           if (error) {
             return { error };
           }

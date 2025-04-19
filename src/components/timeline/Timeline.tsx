@@ -5,18 +5,113 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Slider } from "../ui/slider";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { EditorContent } from "@tiptap/react";
-import { useState } from "react";
+import { useCallback, useEffect } from "react";
 import { WordCount } from "../tiptap/word-count";
+import { useVersionStore } from "@/store/versionStore";
+import { StarterKit } from "@tiptap/starter-kit";
 
 type TimelineProps = {
   editor: ReturnType<typeof useEditor>;
 };
 
 export default function Timeline({ editor }: TimelineProps) {
-  const [version] = useState(12); // Example version number
+  const {
+    currentVersion,
+    versions,
+    getVersionContent,
+    setCurrentVersion,
+    hasContent,
+    isInitialEditing,
+  } = useVersionStore();
 
-  if (!editor) {
+  const minVersion = 1;
+  const maxVersion = Math.max(
+    ...Array.from(versions.keys(), (key) => Number(key)),
+    minVersion
+  );
+  const timelineEditor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        history: false,
+      }),
+    ],
+    editable: false,
+  });
+
+  const handleVersionChange = useCallback(
+    (version: number) => {
+      const result = setCurrentVersion(version);
+      if (result.error) {
+        // In a real app, we'd want to show this error to the user
+        console.error(result.error.message);
+        return;
+      }
+
+      const content = getVersionContent(version);
+      if (content.error) {
+        console.error(content.error.message);
+        return;
+      }
+
+      if (content.data && timelineEditor) {
+        timelineEditor.commands.setContent(content.data);
+      }
+    },
+    [getVersionContent, setCurrentVersion, timelineEditor]
+  );
+
+  const handleSliderChange = useCallback(
+    (values: number[]) => {
+      const version = values[0];
+      handleVersionChange(version);
+    },
+    [handleVersionChange]
+  );
+
+  const handlePreviousVersion = useCallback(() => {
+    if (currentVersion > minVersion) {
+      handleVersionChange(currentVersion - 1);
+    }
+  }, [currentVersion, minVersion, handleVersionChange]);
+
+  const handleNextVersion = useCallback(() => {
+    if (currentVersion < maxVersion) {
+      handleVersionChange(currentVersion + 1);
+    }
+  }, [currentVersion, maxVersion, handleVersionChange]);
+
+  // Initialize with current version content
+  useEffect(() => {
+    if (timelineEditor && hasContent && !isInitialEditing) {
+      const content = getVersionContent(currentVersion);
+      if (content.data) {
+        timelineEditor.commands.setContent(content.data);
+      }
+    }
+  }, [
+    timelineEditor,
+    currentVersion,
+    getVersionContent,
+    hasContent,
+    isInitialEditing,
+  ]);
+
+  const canNavigatePrevious = currentVersion > minVersion;
+  const canNavigateNext = currentVersion < maxVersion;
+
+  if (!editor || !timelineEditor) {
     return null;
+  }
+
+  if (!hasContent || isInitialEditing) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto h-[calc(100vh-8rem)]">
+        <Card className="h-full flex items-center justify-center text-muted-foreground">
+          No version history available yet. Make some changes and save to start
+          tracking versions.
+        </Card>
+      </div>
+    );
   }
 
   return (
@@ -46,6 +141,8 @@ export default function Timeline({ editor }: TimelineProps) {
                   variant="outline"
                   size="icon"
                   className="rounded-full h-12 w-12 cursor-pointer active:scale-110"
+                  onClick={handlePreviousVersion}
+                  disabled={!canNavigatePrevious}
                 >
                   <ChevronLeft className="h-6 w-6" />
                 </Button>
@@ -55,6 +152,8 @@ export default function Timeline({ editor }: TimelineProps) {
                   variant="outline"
                   size="icon"
                   className="rounded-full h-12 w-12 cursor-pointer active:scale-110"
+                  onClick={handleNextVersion}
+                  disabled={!canNavigateNext}
                 >
                   <ChevronRight className="h-6 w-6" />
                 </Button>
@@ -63,7 +162,7 @@ export default function Timeline({ editor }: TimelineProps) {
               {/* Editor Content */}
               <div className="flex-1 border rounded-lg mx-12 min-h-128 overflow-auto">
                 <EditorContent
-                  editor={editor}
+                  editor={timelineEditor}
                   className="prose dark:prose-invert max-w-none h-full p-4"
                 />
               </div>
@@ -71,14 +170,16 @@ export default function Timeline({ editor }: TimelineProps) {
               {/* Timeline Controls */}
               <div className="h-24 px-12 flex flex-col justify-center">
                 <Slider
-                  defaultValue={[50]}
-                  max={100}
+                  value={[currentVersion]}
+                  min={minVersion}
+                  max={maxVersion}
                   step={1}
                   className="mb-4"
+                  onValueChange={handleSliderChange}
                 />
                 <div className="flex justify-between text-sm text-muted-foreground">
-                  <div>v {version}</div>
-                  <WordCount editor={editor} />
+                  <div>v {currentVersion}</div>
+                  <WordCount editor={timelineEditor} />
                 </div>
               </div>
             </div>
