@@ -29,7 +29,7 @@ export default memo(function BranchNode({ data }: BranchNodeProps) {
     }
   };
 
-  const timestamp = new Date(version.version.timestamp);
+  const timestamp = new Date(version.branch.createdAt);
   const timeAgo = getTimeAgo(timestamp);
 
   return (
@@ -130,6 +130,10 @@ export default memo(function BranchNode({ data }: BranchNodeProps) {
 });
 
 function getTimeAgo(date: Date): string {
+  if (!date || isNaN(date.getTime())) {
+    return "unknown";
+  }
+
   const now = new Date();
   const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 

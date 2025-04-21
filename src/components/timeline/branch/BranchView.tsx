@@ -10,9 +10,10 @@ import ReactFlow, {
   Controls,
 } from "reactflow";
 import "reactflow/dist/style.css";
+
+import { useVersionStore } from "@/store/versionStore";
 import BranchNode from "./BranchNode";
 import BranchEdge from "./BranchEdge";
-import { useVersionStore } from "@/store/versionStore";
 
 type BranchViewProps = {
   onBranchCreate: (parentVersionId: string) => void;

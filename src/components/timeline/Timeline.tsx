@@ -55,13 +55,6 @@ export default function Timeline({ editor }: TimelineProps) {
     return mainBranch ? [mainBranch, ...otherBranches] : otherBranches;
   }, [branches]);
 
-  // Get versions for the current branch
-  const currentBranchVersions = useMemo(() => {
-    if (!activeBranch) return [];
-    const result = getBranchVersions(activeBranch.id);
-    return result.data || [];
-  }, [getBranchVersions, activeBranch]);
-
   // Calculate min and max versions for the current branch
   const branchVersionRange = useMemo(() => {
     if (!activeBranch) {
@@ -257,7 +250,7 @@ export default function Timeline({ editor }: TimelineProps) {
 
   if (!hasContent || isInitialEditing) {
     return (
-      <div className="p-6 max-w-6xl mx-auto h-[calc(100vh-8rem)]">
+      <div className="p-6 mx-auto h-[calc(100vh-8rem)]">
         <Card className="h-full flex items-center justify-center text-muted-foreground">
           No version history available yet. Make some changes and save to start
           tracking versions.
@@ -267,7 +260,7 @@ export default function Timeline({ editor }: TimelineProps) {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto h-[calc(100vh-8rem)]">
+    <div className="p-6  mx-auto h-[calc(100vh-8rem)]">
       <Card className="h-full">
         <Tabs defaultValue="timeline" className="h-full flex flex-col">
           <TabsList className="w-full justify-start mb-2 bg-transparent py-10">
@@ -391,8 +384,6 @@ export default function Timeline({ editor }: TimelineProps) {
 
           <TabsContent value="branch" className="flex-1 px-4">
             <BranchView
-              versions={currentBranchVersions}
-              selectedVersion={currentVersion.toString()}
               onBranchCreate={handleBranchCreate}
               onBranchSwitch={handleBranchSwitch}
               onVersionSelect={(versionId) =>
