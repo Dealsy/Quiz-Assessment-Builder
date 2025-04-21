@@ -177,7 +177,8 @@ export default function BranchView({
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
-        style={{ backgroundColor: "#F7F9FB" }}
+        style={{ backgroundColor: "transparent" }}
+        className="dark:bg-gray-950 bg-gray-50"
         defaultEdgeOptions={{
           type: "branchEdge",
           animated: true,
@@ -186,9 +187,9 @@ export default function BranchView({
         minZoom={0.5}
         maxZoom={2}
       >
-        <MiniMap />
-        <Controls />
-        <Background color="#aaa" gap={16} />
+        <MiniMap className="dark:bg-gray-900" />
+        <Controls className="dark:bg-gray-900 dark:border-gray-800" />
+        <Background color="#aaa" gap={16} className="dark:opacity-20" />
       </ReactFlow>
     </div>
   );

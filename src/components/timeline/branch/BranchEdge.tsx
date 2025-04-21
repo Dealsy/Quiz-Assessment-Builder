@@ -15,7 +15,6 @@ export default function BranchEdge({
   targetPosition,
   style = {},
   markerEnd,
-  data,
 }: BranchEdgeProps) {
   const [edgePath] = getBezierPath({
     sourceX,
@@ -26,13 +25,15 @@ export default function BranchEdge({
     targetPosition,
   });
 
+  const isDarkMode = document.documentElement.classList.contains("dark");
+
   return (
     <BaseEdge
       path={edgePath}
       markerEnd={markerEnd || MarkerType.Arrow}
       style={{
         strokeWidth: 2,
-        stroke: data?.isBranchPoint ? "#ad46ff" : "#64748b",
+        stroke: isDarkMode ? "#4B5563" : "#9CA3AF",
         strokeDasharray: "5 5",
         ...style,
       }}
