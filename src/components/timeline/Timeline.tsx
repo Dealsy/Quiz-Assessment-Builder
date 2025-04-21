@@ -35,6 +35,7 @@ export default function Timeline({ editor }: TimelineProps) {
     switchBranch,
     getActiveBranch,
     branches,
+    activeBranchId,
   } = useVersionStore();
 
   const minVersion = 1;
@@ -42,19 +43,47 @@ export default function Timeline({ editor }: TimelineProps) {
   // Get active branch
   const activeBranch = useMemo(() => {
     return getActiveBranch();
-  }, [getActiveBranch]);
+  }, [getActiveBranch, activeBranchId]);
 
-  // Calculate min and max versions
+  // Get all branches including main
+  const allBranches = useMemo(() => {
+    const branchList = Array.from(branches.values());
+    const mainBranch = branchList.find((b) => b.isMain);
+    const otherBranches = branchList.filter((b) => !b.isMain);
+
+    // Ensure main branch is always first in the list
+    return mainBranch ? [mainBranch, ...otherBranches] : otherBranches;
+  }, [branches]);
+
+  // Get versions for the current branch
+  const currentBranchVersions = useMemo(() => {
+    if (!activeBranch) return [];
+    const result = getBranchVersions(activeBranch.id);
+    return result.data || [];
+  }, [getBranchVersions, activeBranch]);
+
+  // Calculate min and max versions for the current branch
   const branchVersionRange = useMemo(() => {
     if (!activeBranch) {
       return { min: minVersion, max: minVersion };
     }
 
+    // Get versions for the current branch
+    const result = getBranchVersions(activeBranch.id);
+    if (!result.data) {
+      return { min: minVersion, max: minVersion };
+    }
+
+    // Get all version numbers including parent branch versions
+    const versions = result.data.map(
+      (bv) => Number(bv.version.parentVersion || 0) + 1
+    );
+
     return {
-      min: minVersion,
-      max: Number(activeBranch.currentVersionId),
+      min: Math.min(...versions, minVersion),
+      max: Math.max(...versions, minVersion),
     };
-  }, [activeBranch, minVersion]);
+  }, [getBranchVersions, activeBranch, minVersion]);
 
   const timelineEditor = useEditor({
     extensions: [
@@ -65,20 +94,15 @@ export default function Timeline({ editor }: TimelineProps) {
     editable: false,
   });
 
-  const branchVersions = useMemo(() => {
-    if (!hasContent || isInitialEditing) {
-      return [];
-    }
-    const activeBranch = getActiveBranch();
-    if (!activeBranch) {
-      return [];
-    }
-    const result = getBranchVersions(activeBranch.id);
-    return result.data || [];
-  }, [getBranchVersions, getActiveBranch, hasContent, isInitialEditing]);
-
   const handleVersionChange = useCallback(
     (version: number) => {
+      if (
+        version < branchVersionRange.min ||
+        version > branchVersionRange.max
+      ) {
+        return;
+      }
+
       const result = setCurrentVersion(version);
       if (result.error) {
         console.error("Version change error:", result.error.message);
@@ -95,11 +119,11 @@ export default function Timeline({ editor }: TimelineProps) {
         timelineEditor.commands.setContent(content.data);
       }
     },
-    [getVersionContent, setCurrentVersion, timelineEditor]
+    [getVersionContent, setCurrentVersion, timelineEditor, branchVersionRange]
   );
 
   // Determine if navigation is possible
-  const canNavigatePrevious = currentVersion > minVersion;
+  const canNavigatePrevious = currentVersion > branchVersionRange.min;
   const canNavigateNext = currentVersion < branchVersionRange.max;
 
   const handlePreviousVersion = useCallback(() => {
@@ -117,34 +141,98 @@ export default function Timeline({ editor }: TimelineProps) {
   const handleSliderChange = useCallback(
     (values: number[]) => {
       const version = values[0];
-      handleVersionChange(version);
+      if (
+        version >= branchVersionRange.min &&
+        version <= branchVersionRange.max
+      ) {
+        handleVersionChange(version);
+      }
     },
-    [handleVersionChange]
+    [handleVersionChange, branchVersionRange]
   );
 
+  // Handle branch switching
+  const handleBranchSwitch = useCallback(
+    (branchId: string) => {
+      console.log("Switching to branch:", branchId);
+
+      // Ensure we have a valid branch ID
+      if (!branchId) {
+        console.error("Invalid branch ID");
+        return;
+      }
+
+      const branch = branches.get(branchId);
+      if (!branch) {
+        console.error("Branch not found:", branchId);
+        return;
+      }
+
+      // Switch branch first
+      const result = switchBranch(branchId);
+      if (result.error) {
+        console.error("Branch switch error:", result.error.message);
+        return;
+      }
+
+      // Get the branch's versions to determine available versions
+      const branchVersionsResult = getBranchVersions(branchId);
+      if (
+        !branchVersionsResult.data ||
+        branchVersionsResult.data.length === 0
+      ) {
+        console.error("No versions found for branch:", branchId);
+        return;
+      }
+
+      // Get the version content and update the timeline editor
+      const targetVersion = Number(branch.currentVersionId);
+      const content = getVersionContent(targetVersion);
+      if (content.error) {
+        console.error("Content fetch error:", content.error.message);
+        return;
+      }
+
+      if (content.data && timelineEditor) {
+        timelineEditor.commands.setContent(content.data);
+      }
+    },
+    [
+      switchBranch,
+      branches,
+      getBranchVersions,
+      getVersionContent,
+      timelineEditor,
+    ]
+  );
+
+  // Handle branch creation
   const handleBranchCreate = useCallback(
     (parentVersionId: string) => {
       const result = createBranch(parentVersionId);
       if (result.error) {
-        console.error(result.error.message);
+        console.error("Branch creation error:", result.error.message);
         return;
       }
-      // Switch to the newly created branch
-      if (result.data) {
-        switchBranch(result.data.id);
-      }
-    },
-    [createBranch, switchBranch]
-  );
 
-  const handleBranchSwitch = useCallback(
-    (branchId: string) => {
-      const result = switchBranch(branchId);
-      if (result.error) {
-        console.error(result.error.message);
+      // The version store will automatically switch to the new branch
+      if (result.data) {
+        const newBranch = result.data;
+        console.log("Created new branch:", newBranch);
+
+        // Get the version content and update the timeline editor
+        const content = getVersionContent(Number(parentVersionId));
+        if (content.error) {
+          console.error("Content fetch error:", content.error.message);
+          return;
+        }
+
+        if (content.data && timelineEditor) {
+          timelineEditor.commands.setContent(content.data);
+        }
       }
     },
-    [switchBranch]
+    [createBranch, getVersionContent, timelineEditor]
   );
 
   // Initialize with current version content
@@ -177,14 +265,6 @@ export default function Timeline({ editor }: TimelineProps) {
       </div>
     );
   }
-
-  // Get all branches including main
-  const allBranches = Array.from(branches.values());
-  const mainBranch = allBranches.find((b) => b.isMain);
-  const otherBranches = allBranches.filter((b) => !b.isMain);
-  const sortedBranches = mainBranch
-    ? [mainBranch, ...otherBranches]
-    : otherBranches;
 
   return (
     <div className="p-6 max-w-6xl mx-auto h-[calc(100vh-8rem)]">
@@ -235,21 +315,34 @@ export default function Timeline({ editor }: TimelineProps) {
               <div className="flex items-center justify-between p-4 border-b">
                 <div className="flex items-center gap-4">
                   <Select
-                    value={getActiveBranch()?.id}
+                    value={activeBranchId}
                     onValueChange={handleBranchSwitch}
                   >
                     <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="Select branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sortedBranches.map((branch) => (
-                        <SelectItem key={branch.id} value={branch.id}>
-                          {branch.name}
-                          {branch.isMain && (
+                      <SelectValue>
+                        <div className="flex items-center gap-2">
+                          <GitBranch className="h-4 w-4" />
+                          {activeBranch?.name || "Select branch"}
+                          {activeBranch?.isMain && (
                             <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
                               main
                             </span>
                           )}
+                        </div>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allBranches.map((branch) => (
+                        <SelectItem key={branch.id} value={branch.id}>
+                          <div className="flex items-center gap-2">
+                            <GitBranch className="h-4 w-4" />
+                            {branch.name}
+                            {branch.isMain && (
+                              <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                                main
+                              </span>
+                            )}
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -298,7 +391,7 @@ export default function Timeline({ editor }: TimelineProps) {
 
           <TabsContent value="branch" className="flex-1 px-4">
             <BranchView
-              versions={branchVersions}
+              versions={currentBranchVersions}
               selectedVersion={currentVersion.toString()}
               onBranchCreate={handleBranchCreate}
               onBranchSwitch={handleBranchSwitch}
