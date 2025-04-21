@@ -76,7 +76,7 @@ The version control system is managed by the VersionStore, which handles:
 - Content persistence
 - State synchronization
 
-For detailed information for things like the VersionStore, see the[Documentation](./docs).
+For detailed information for things like the VersionStore, see the [Documentation](./docs).
 
 ## Tech Stack
 
