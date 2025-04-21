@@ -44,10 +44,11 @@ export default memo(function BranchNode({ data }: BranchNodeProps) {
       <div
         className={cn(
           "px-5 py-3.5 rounded-xl border transition-all duration-200",
-          "dark:border-gray-800 dark:bg-black/95 border-gray-200 bg-white/95 backdrop-blur-sm shadow-sm",
+          "dark:border-gray-950/50 dark:bg-black/95 border-gray-200 bg-white/95 backdrop-blur-sm shadow-sm",
           "dark:text-white text-gray-900",
-          "dark:hover:bg-gray-900 hover:bg-gray-50 dark:hover:border-gray-700 hover:border-gray-300 hover:shadow-md",
-          isHead && "ring-2 dark:ring-white/60 ring-black/60 ring-offset-2"
+          "dark:hover:bg-gray-900 hover:bg-gray-50 dark:hover:border-gray-800 hover:border-gray-300 hover:shadow-md",
+          isHead &&
+            "ring-2 dark:ring-white/30 ring-black/60 ring-offset-2 dark:ring-offset-black"
         )}
       >
         <Handle

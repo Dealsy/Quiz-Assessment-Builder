@@ -7,7 +7,6 @@ import ReactFlow, {
   useEdgesState,
   Position,
   MarkerType,
-  MiniMap,
   Controls,
 } from "reactflow";
 import "reactflow/dist/style.css";
@@ -187,7 +186,6 @@ export default function BranchView({
         minZoom={0.5}
         maxZoom={2}
       >
-        <MiniMap className="dark:bg-gray-900" />
         <Controls className="dark:bg-gray-900 dark:border-gray-800" />
         <Background color="#aaa" gap={16} className="dark:opacity-20" />
       </ReactFlow>
