@@ -66,7 +66,7 @@ type VersionStore = {
   applyStep: (step: PMStep) => void;
   setDirty: (isDirty: boolean) => void;
   reset: () => void;
-  validateStorage: () => StorageState;
+  validateStorage: () => StorageValidationState;
   recoverFromCorruption: () => Result<void>;
 };
 ```
@@ -160,6 +160,7 @@ type StoredDocument = {
   branches: Record<string, Branch>;
   currentVersion: number;
   activeBranchId: string;
+  storageState: StorageValidationState;
 };
 ```
 

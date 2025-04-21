@@ -1,19 +1,12 @@
-import { StorageState } from "@/types/store";
 import { ERROR_CODE, ERROR_MESSAGE } from "../constants";
-
-type ValidationResult = {
-  isValid: boolean;
-  error?: {
-    code: (typeof ERROR_CODE)[keyof typeof ERROR_CODE];
-    message: string;
-  };
-};
+import { ValidationResult } from "@/types/validation";
+import { VersionStoreState } from "@/types/store";
 
 export function isValidVersion(
   version: number,
-  storage: StorageState
+  store: VersionStoreState
 ): ValidationResult {
-  if (version < 0 || version >= storage.steps.length) {
+  if (version < 0 || version >= store.steps.length) {
     return {
       isValid: false,
       error: {
@@ -27,11 +20,11 @@ export function isValidVersion(
 
 export function isValidBranch(
   branchId: string,
-  storage: StorageState
+  store: VersionStoreState
 ): ValidationResult {
   if (
     typeof branchId !== "string" ||
-    (!storage.branches[branchId] && branchId !== "main")
+    (!store.branches.has(branchId) && branchId !== "main")
   ) {
     return {
       isValid: false,
