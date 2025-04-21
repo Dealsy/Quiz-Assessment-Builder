@@ -9,6 +9,11 @@ export const ERROR_CODE = {
   VERSION_NOT_FOUND: "VERSION_NOT_FOUND",
   CONTENT_CORRUPTED: "CONTENT_CORRUPTED",
   STORAGE_ERROR: "STORAGE_ERROR",
+  BRANCH_NOT_FOUND: "BRANCH_NOT_FOUND",
+  INVALID_BRANCH: "INVALID_BRANCH",
+  INVALID_CONTENT: "INVALID_CONTENT",
+  INVALID_STORAGE: "INVALID_STORAGE",
+  INVALID_OPERATION: "INVALID_OPERATION",
 } as const;
 
 export const ERROR_MESSAGE = {
@@ -21,4 +26,9 @@ export const ERROR_MESSAGE = {
   VERSION_CONTENT_NOT_FOUND: (version: number) =>
     `Version ${version} content not found`,
   CONTENT_CORRUPTED: "Version content is corrupted",
+  BRANCH_NOT_FOUND: (branch: string) => `Branch ${branch} not found`,
+  INVALID_BRANCH: (branch: string) => `Branch ${branch} is invalid`,
+  INVALID_CONTENT: "Invalid content format",
+  INVALID_STORAGE: "Invalid storage configuration",
+  INVALID_OPERATION: "Invalid operation",
 } as const;
