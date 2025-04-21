@@ -10,6 +10,14 @@ import { WordCount } from "../tiptap/word-count";
 import { useVersionStore } from "@/store/versionStore";
 import { StarterKit } from "@tiptap/starter-kit";
 import BranchView from "./branch/BranchView";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { GitBranch } from "lucide-react";
 
 type TimelineProps = {
   editor: ReturnType<typeof useEditor>;
@@ -18,7 +26,6 @@ type TimelineProps = {
 export default function Timeline({ editor }: TimelineProps) {
   const {
     currentVersion,
-    versions,
     getVersionContent,
     setCurrentVersion,
     hasContent,
@@ -27,13 +34,28 @@ export default function Timeline({ editor }: TimelineProps) {
     createBranch,
     switchBranch,
     getActiveBranch,
+    branches,
   } = useVersionStore();
 
   const minVersion = 1;
-  const maxVersion = Math.max(
-    ...Array.from(versions.keys(), (key) => Number(key)),
-    minVersion
-  );
+
+  // Get active branch
+  const activeBranch = useMemo(() => {
+    return getActiveBranch();
+  }, [getActiveBranch]);
+
+  // Calculate min and max versions
+  const branchVersionRange = useMemo(() => {
+    if (!activeBranch) {
+      return { min: minVersion, max: minVersion };
+    }
+
+    return {
+      min: minVersion,
+      max: Number(activeBranch.currentVersionId),
+    };
+  }, [activeBranch, minVersion]);
+
   const timelineEditor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -59,14 +81,13 @@ export default function Timeline({ editor }: TimelineProps) {
     (version: number) => {
       const result = setCurrentVersion(version);
       if (result.error) {
-        // In a real app, we'd want to show this error to the user
-        console.error(result.error.message);
+        console.error("Version change error:", result.error.message);
         return;
       }
 
       const content = getVersionContent(version);
       if (content.error) {
-        console.error(content.error.message);
+        console.error("Content fetch error:", content.error.message);
         return;
       }
 
@@ -77,6 +98,22 @@ export default function Timeline({ editor }: TimelineProps) {
     [getVersionContent, setCurrentVersion, timelineEditor]
   );
 
+  // Determine if navigation is possible
+  const canNavigatePrevious = currentVersion > minVersion;
+  const canNavigateNext = currentVersion < branchVersionRange.max;
+
+  const handlePreviousVersion = useCallback(() => {
+    if (canNavigatePrevious) {
+      handleVersionChange(currentVersion - 1);
+    }
+  }, [currentVersion, canNavigatePrevious, handleVersionChange]);
+
+  const handleNextVersion = useCallback(() => {
+    if (canNavigateNext) {
+      handleVersionChange(currentVersion + 1);
+    }
+  }, [currentVersion, canNavigateNext, handleVersionChange]);
+
   const handleSliderChange = useCallback(
     (values: number[]) => {
       const version = values[0];
@@ -84,18 +121,6 @@ export default function Timeline({ editor }: TimelineProps) {
     },
     [handleVersionChange]
   );
-
-  const handlePreviousVersion = useCallback(() => {
-    if (currentVersion > minVersion) {
-      handleVersionChange(currentVersion - 1);
-    }
-  }, [currentVersion, minVersion, handleVersionChange]);
-
-  const handleNextVersion = useCallback(() => {
-    if (currentVersion < maxVersion) {
-      handleVersionChange(currentVersion + 1);
-    }
-  }, [currentVersion, maxVersion, handleVersionChange]);
 
   const handleBranchCreate = useCallback(
     (parentVersionId: string) => {
@@ -138,9 +163,6 @@ export default function Timeline({ editor }: TimelineProps) {
     isInitialEditing,
   ]);
 
-  const canNavigatePrevious = currentVersion > minVersion;
-  const canNavigateNext = currentVersion < maxVersion;
-
   if (!editor || !timelineEditor) {
     return null;
   }
@@ -155,6 +177,14 @@ export default function Timeline({ editor }: TimelineProps) {
       </div>
     );
   }
+
+  // Get all branches including main
+  const allBranches = Array.from(branches.values());
+  const mainBranch = allBranches.find((b) => b.isMain);
+  const otherBranches = allBranches.filter((b) => !b.isMain);
+  const sortedBranches = mainBranch
+    ? [mainBranch, ...otherBranches]
+    : otherBranches;
 
   return (
     <div className="p-6 max-w-6xl mx-auto h-[calc(100vh-8rem)]">
@@ -201,6 +231,45 @@ export default function Timeline({ editor }: TimelineProps) {
                 </Button>
               </div>
 
+              {/* Branch Controls */}
+              <div className="flex items-center justify-between p-4 border-b">
+                <div className="flex items-center gap-4">
+                  <Select
+                    value={getActiveBranch()?.id}
+                    onValueChange={handleBranchSwitch}
+                  >
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Select branch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sortedBranches.map((branch) => (
+                        <SelectItem key={branch.id} value={branch.id}>
+                          {branch.name}
+                          {branch.isMain && (
+                            <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                              main
+                            </span>
+                          )}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      handleBranchCreate(currentVersion.toString())
+                    }
+                  >
+                    <GitBranch className="h-4 w-4 mr-2" />
+                    Create Branch
+                  </Button>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Version {currentVersion}
+                </div>
+              </div>
+
               {/* Editor Content */}
               <div className="flex-1 border rounded-lg mx-12 min-h-128 overflow-auto">
                 <EditorContent
@@ -213,8 +282,8 @@ export default function Timeline({ editor }: TimelineProps) {
               <div className="h-24 px-12 flex flex-col justify-center">
                 <Slider
                   value={[currentVersion]}
-                  min={minVersion}
-                  max={maxVersion}
+                  min={branchVersionRange.min}
+                  max={branchVersionRange.max}
                   step={1}
                   className="mb-4"
                   onValueChange={handleSliderChange}
