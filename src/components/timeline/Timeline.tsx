@@ -42,12 +42,10 @@ export default function Timeline({ editor, setShowTimeline }: TimelineProps) {
 
   const minVersion = 1;
 
-  // Get active branch
   const activeBranch = useVersionStore(
     useCallback((state) => state.branches.get(state.activeBranchId), [])
   );
 
-  // Get all branches including main
   const allBranches = useMemo(() => getAllBranches(branches), [branches]);
 
   const timelineEditor = useEditor({
@@ -59,7 +57,6 @@ export default function Timeline({ editor, setShowTimeline }: TimelineProps) {
     editable: false,
   });
 
-  // Calculate branch version range
   const branchVersionRange = useMemo(() => {
     if (!activeBranch) {
       return { min: minVersion, max: minVersion };
@@ -76,7 +73,6 @@ export default function Timeline({ editor, setShowTimeline }: TimelineProps) {
     );
   }, [getBranchVersions, activeBranch, minVersion]);
 
-  // Determine if navigation is possible
   const canNavigatePrevious = currentVersion > branchVersionRange.min;
   const canNavigateNext = currentVersion < branchVersionRange.max;
 
@@ -203,28 +199,31 @@ export default function Timeline({ editor, setShowTimeline }: TimelineProps) {
                 }}
               />
 
-              <div className="flex-1 border rounded-lg mx-12 min-h-128 overflow-auto my-5">
-                <EditorContent
-                  editor={timelineEditor}
-                  className="prose dark:prose-invert max-w-none h-full p-4"
-                />
+              <div className="border rounded-lg mx-12 my-5 h-[calc(100vh-24rem)] flex flex-col">
+                <div className="flex-1 overflow-y-auto border-b p-2">
+                  <EditorContent
+                    editor={timelineEditor}
+                    className="prose dark:prose-invert max-w-none p-4"
+                  />
+                </div>
+                <div className="p-4">
+                  <TimelineControls
+                    currentVersion={currentVersion}
+                    minVersion={branchVersionRange.min}
+                    maxVersion={branchVersionRange.max}
+                    onVersionChange={(values) =>
+                      handleSliderChange(
+                        values,
+                        branchVersionRange,
+                        timelineEditor,
+                        setCurrentVersion,
+                        getVersionContent
+                      )
+                    }
+                    editor={timelineEditor}
+                  />
+                </div>
               </div>
-
-              <TimelineControls
-                currentVersion={currentVersion}
-                minVersion={branchVersionRange.min}
-                maxVersion={branchVersionRange.max}
-                onVersionChange={(values) =>
-                  handleSliderChange(
-                    values,
-                    branchVersionRange,
-                    timelineEditor,
-                    setCurrentVersion,
-                    getVersionContent
-                  )
-                }
-                editor={timelineEditor}
-              />
             </div>
           </TabsContent>
 
