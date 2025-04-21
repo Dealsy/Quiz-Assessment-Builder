@@ -1,6 +1,6 @@
-# Cadmus - Version Control for Rich Text Editors
+# Version Control for Rich Text Editors
 
-Cadmus is a sophisticated version control system designed specifically for rich text editors, offering Git-like branching capabilities in a user-friendly interface.
+This is aversion control system designed specifically for rich text editors, offering Git-like branching capabilities in a user-friendly interface.
 
 ## Features
 
@@ -24,8 +24,9 @@ Cadmus is a sophisticated version control system designed specifically for rich 
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/cadmus.git
-cd cadmus
+git clone git@github.com:yourusername/Quiz-Assessment-Builder.git
+
+cd Quiz-Assessment-Builde
 ```
 
 2. Install dependencies:
@@ -60,7 +61,7 @@ src/
 
 ## How It Works
 
-Cadmus combines the power of Tiptap for rich text editing with a custom version control system. The editor tracks changes and allows users to:
+It combines the power of Tiptap for rich text editing with a custom version control system. The editor tracks changes and allows users to:
 
 1. Create versions (commits) of their content
 2. Create branches for different content variations
