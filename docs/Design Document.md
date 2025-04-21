@@ -20,7 +20,6 @@ This document outlines the technical design and implementation details for a Qui
 - ReactFlow (Branch visualization)
 - Zustand (State Management)
 - date-fns (Date Manipulation)
-- Zod (Runtime Type Validation)
 
 ## Project Structure
 
