@@ -1,54 +1,87 @@
-# React + TypeScript + Vite
+# Cadmus - Version Control for Rich Text Editors
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Cadmus is a sophisticated version control system designed specifically for rich text editors, offering Git-like branching capabilities in a user-friendly interface.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- 📝 Rich text editing with Tiptap
+- 🌳 Git-like branching system
+- 📚 Version history tracking
+- 🔄 Branch switching
+- ⏱️ Timeline view for version navigation
+- 🌗 Dark mode support
+- 🎯 Real-time content updates
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Prerequisites
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+- Node.js (v18 or higher)
+- pnpm
+
+### Installation
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/yourusername/cadmus.git
+cd cadmus
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+2. Install dependencies:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+pnpm install
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
 ```
+
+3. Start the development server:
+
+```bash
+pnpm run dev
+
+```
+
+4. Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+## Project Structure
+
+```
+src/
+├── components/         # React components
+│   ├── timeline/      # Version control UI components
+│   └── tiptap/        # Editor components
+├── store/             # State management
+│   └── versionStore.ts # Version control logic
+├── types/             # TypeScript type definitions
+├── utils/             # Utility functions
+└── constants.ts       # Application constants
+```
+
+## How It Works
+
+Cadmus combines the power of Tiptap for rich text editing with a custom version control system. The editor tracks changes and allows users to:
+
+1. Create versions (commits) of their content
+2. Create branches for different content variations
+3. Switch between versions and branches
+4. View the full history of changes
+5. Navigate through versions using a timeline interface
+
+The version control system is managed by the VersionStore, which handles:
+
+- Version creation and management
+- Branch operations
+- Content persistence
+- State synchronization
+
+For detailed information about the VersionStore, see [VERSION_STORE.md](./docs/VERSION_STORE.md).
+
+## Tech Stack
+
+- React
+- TypeScript
+- Tiptap
+- Zustand
+- Tailwind CSS
+- shadcn/ui

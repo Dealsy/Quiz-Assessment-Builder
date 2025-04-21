@@ -16,21 +16,26 @@ import BranchNode from "./BranchNode";
 import BranchEdge from "./BranchEdge";
 
 type BranchViewProps = {
-  onBranchCreate: (parentVersionId: string) => void;
-  onBranchSwitch: (branchId: string) => void;
   onVersionSelect: (versionId: string) => void;
+  onEdit: () => void;
 };
 
 export default function BranchView({
-  onBranchCreate,
-  onBranchSwitch,
   onVersionSelect,
+  onEdit,
 }: BranchViewProps) {
   const nodeTypes = useMemo(() => ({ branchNode: BranchNode }), []);
   const edgeTypes = useMemo(() => ({ branchEdge: BranchEdge }), []);
 
   const branches = useVersionStore((state) => state.branches);
   const activeBranchId = useVersionStore((state) => state.activeBranchId);
+
+  // Force rerender when branches change
+  const branchesArray = useMemo(
+    () => Array.from(branches.values()),
+    [branches]
+  );
+  const branchCount = branchesArray.length;
 
   // Transform branches into nodes and edges
   const { initialNodes, initialEdges } = useMemo(() => {
@@ -41,7 +46,7 @@ export default function BranchView({
     const childrenByParent = new Map<string, string[]>();
 
     // First pass: Build the parent-child relationships
-    Array.from(branches.values()).forEach((branch) => {
+    branchesArray.forEach((branch) => {
       if (branch.parentBranchId) {
         const siblings = childrenByParent.get(branch.parentBranchId) || [];
         siblings.push(branch.id);
@@ -66,7 +71,7 @@ export default function BranchView({
     };
 
     // Process main branch first
-    const mainBranch = Array.from(branches.values()).find((b) => b.isMain);
+    const mainBranch = branchesArray.find((b) => b.isMain);
     if (mainBranch) {
       calculateBranchLevel(mainBranch.id);
       nodes.push({
@@ -82,8 +87,7 @@ export default function BranchView({
           isHead: true,
           isSelected: mainBranch.id === activeBranchId,
           onSelect: () => onVersionSelect(mainBranch.currentVersionId),
-          onBranchCreate: () => onBranchCreate(mainBranch.currentVersionId),
-          onBranchSwitch: () => onBranchSwitch(mainBranch.id),
+          onEdit,
         },
         sourcePosition: Position.Bottom,
         targetPosition: Position.Top,
@@ -121,8 +125,7 @@ export default function BranchView({
             isHead: true,
             isSelected: childId === activeBranchId,
             onSelect: () => onVersionSelect(branch.currentVersionId),
-            onBranchCreate: () => onBranchCreate(branch.currentVersionId),
-            onBranchSwitch: () => onBranchSwitch(childId),
+            onEdit,
           },
           sourcePosition: Position.Bottom,
           targetPosition: Position.Top,
@@ -148,13 +151,7 @@ export default function BranchView({
     }
 
     return { initialNodes: nodes, initialEdges: edges };
-  }, [
-    branches,
-    activeBranchId,
-    onVersionSelect,
-    onBranchCreate,
-    onBranchSwitch,
-  ]);
+  }, [branches, activeBranchId, onVersionSelect, branchCount, onEdit]);
 
   const [flowNodes, , onNodesChange] = useNodesState(initialNodes);
   const [flowEdges, , onEdgesChange] = useEdgesState(initialEdges);
@@ -177,14 +174,18 @@ export default function BranchView({
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
+        fitViewOptions={{
+          padding: 0,
+          minZoom: 1.2,
+          maxZoom: 1.2,
+        }}
         style={{ backgroundColor: "transparent" }}
         className="dark:bg-gray-950 bg-gray-50"
         defaultEdgeOptions={{
           type: "branchEdge",
           animated: true,
         }}
-        defaultViewport={{ x: 0, y: 0, zoom: 1.5 }}
-        minZoom={0.5}
+        minZoom={0.3}
         maxZoom={2}
       >
         <Controls className="dark:bg-gray-900 dark:border-gray-800" />

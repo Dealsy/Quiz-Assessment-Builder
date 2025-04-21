@@ -2,6 +2,17 @@ export const VERSION = {
   INITIAL: 1,
   STORAGE_KEY: "document-versions",
   SAVE_DEBOUNCE_MS: 1000,
+  REQUIRED_STRING_PROPS: ["timestamp", "branchId"] as const,
+} as const;
+
+export const BRANCH = {
+  ID: "main",
+  REQUIRED_STRING_PROPS: [
+    "id",
+    "name",
+    "currentVersionId",
+    "createdAt",
+  ] as const,
 } as const;
 
 export const ERROR_CODE = {
@@ -31,4 +42,46 @@ export const ERROR_MESSAGE = {
   INVALID_CONTENT: "Invalid content format",
   INVALID_STORAGE: "Invalid storage configuration",
   INVALID_OPERATION: "Invalid operation",
+} as const;
+
+export const TOAST_MESSAGE = {
+  ERROR: {
+    BRANCH_NOT_FOUND: {
+      title: "Branch not found",
+      description: (branchId: string) =>
+        `Could not find branch with ID: ${branchId}`,
+    },
+    BRANCH_SWITCH: {
+      title: "Branch switch error",
+      description: (message: string) => message,
+    },
+    NO_VERSIONS: {
+      title: "No versions found",
+      description: (branchName: string) =>
+        `No versions found for branch: ${branchName}`,
+    },
+    BRANCH_CREATE: {
+      title: "Failed to create branch",
+      description: (message: string) => message,
+    },
+    VERSION_CHANGE: {
+      title: "Version change error",
+      description: (message: string) => message,
+    },
+    VERSION_CONTENT: {
+      title: "Content fetch error",
+      description: (message: string) => message,
+    },
+    VERSION_RANGE: {
+      title: "Invalid version range",
+      description: "Start version cannot be greater than end version",
+    },
+  },
+  SUCCESS: {
+    BRANCH_CREATE: {
+      title: "Branch created",
+      description: (branchName: string) =>
+        `Successfully created branch: ${branchName}`,
+    },
+  },
 } as const;
