@@ -48,21 +48,19 @@ export default memo(function BranchNode({ data }: BranchNodeProps) {
       <div
         className={cn(
           "px-4 py-3 rounded-lg border transition-all",
-          isSelected
-            ? "border-blue-500 bg-blue-50 shadow-md"
-            : "border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300",
-          isHead && "ring-2 ring-green-500 ring-offset-2"
+          "border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300",
+          isHead && "ring-1 ring-purple-500 ring-offset-2"
         )}
       >
         <Handle
           type="target"
-          position={Position.Left}
-          className="!bg-gray-400 !w-3 !h-3 !-left-1.5"
+          position={Position.Top}
+          className="!bg-gray-400 !w-3 !h-3 !-top-1.5"
         />
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <GitCommit className="h-4 w-4 text-gray-500" />
-            <span className="text-sm font-medium">
+            <span className="text-sm font-medium text-black/70">
               Version {version.version.parentVersion}
             </span>
             {isHead && (
@@ -82,8 +80,8 @@ export default memo(function BranchNode({ data }: BranchNodeProps) {
         </div>
         <Handle
           type="source"
-          position={Position.Right}
-          className="!bg-gray-400 !w-3 !h-3 !-right-1.5"
+          position={Position.Bottom}
+          className="!bg-gray-400 !w-3 !h-3 !-bottom-1.5"
         />
       </div>
 

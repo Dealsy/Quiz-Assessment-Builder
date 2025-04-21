@@ -1,126 +1,163 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import ReactFlow, {
   Background,
-  Controls,
   Edge,
   Node,
-  NodeTypes,
-  EdgeTypes,
   useNodesState,
   useEdgesState,
+  Position,
+  MarkerType,
+  MiniMap,
+  Controls,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { BranchVersion } from "@/types/version";
 import BranchNode from "./BranchNode";
 import BranchEdge from "./BranchEdge";
-import BranchControls from "./BranchControls";
+import { useVersionStore } from "@/store/versionStore";
 
 type BranchViewProps = {
-  versions: BranchVersion[];
-  selectedVersion?: string;
   onBranchCreate: (parentVersionId: string) => void;
   onBranchSwitch: (branchId: string) => void;
   onVersionSelect: (versionId: string) => void;
 };
 
-const nodeTypes: NodeTypes = {
-  branchNode: BranchNode,
-};
-
-const edgeTypes: EdgeTypes = {
-  branchEdge: BranchEdge,
-};
-
 export default function BranchView({
-  versions,
-  selectedVersion,
   onBranchCreate,
   onBranchSwitch,
   onVersionSelect,
 }: BranchViewProps) {
-  const [isLoading, setIsLoading] = useState(false);
+  const nodeTypes = useMemo(() => ({ branchNode: BranchNode }), []);
+  const edgeTypes = useMemo(() => ({ branchEdge: BranchEdge }), []);
 
-  const { nodes, edges, branches, activeBranchId } = useMemo(() => {
-    const nodeMap = new Map<string, Node>();
-    const edgeList: Edge[] = [];
-    const processedVersions = new Set<string>();
-    const branchMap = new Map<string, BranchVersion["branch"]>();
+  const branches = useVersionStore((state) => state.branches);
+  const activeBranchId = useVersionStore((state) => state.activeBranchId);
 
-    // Calculate vertical spacing based on branches
-    const branchYPositions = new Map<string, number>();
-    let currentY = 0;
-    const ySpacing = 150;
+  // Transform branches into nodes and edges
+  const { initialNodes, initialEdges } = useMemo(() => {
+    const nodes: Node[] = [];
+    const edges: Edge[] = [];
+    const processedBranches = new Set<string>();
+    const branchLevels = new Map<string, number>();
+    const childrenByParent = new Map<string, string[]>();
 
-    versions.forEach((version) => {
-      const branchId = version.branch.id;
-      if (!branchYPositions.has(branchId)) {
-        branchYPositions.set(branchId, currentY);
-        currentY += ySpacing;
-      }
-      branchMap.set(version.branch.id, version.branch);
-    });
-
-    // Create nodes and edges
-    versions.forEach((version) => {
-      const versionId = version.version.parentVersion || "0";
-      if (processedVersions.has(versionId)) return;
-      processedVersions.add(versionId);
-
-      const y = branchYPositions.get(version.branch.id) || 0;
-      const x = parseInt(versionId) * 200;
-
-      // Create node
-      nodeMap.set(versionId, {
-        id: versionId,
-        type: "branchNode",
-        position: { x, y },
-        data: {
-          version,
-          isHead: version.isHead,
-          isSelected: versionId === selectedVersion,
-          onSelect: () => onVersionSelect(versionId),
-        },
-      });
-
-      // Create edge if there's a parent version
-      if (version.version.parentVersion) {
-        const edge = {
-          id: `${version.version.parentVersion}-${versionId}`,
-          source: version.version.parentVersion,
-          target: versionId,
-          type: "branchEdge",
-          data: {
-            isBranchPoint:
-              version.branch.parentVersionId === version.version.parentVersion,
-          },
-        };
-        edgeList.push(edge);
-
-        // If this is a branch point, add a context menu for branch creation
-        if (edge.data.isBranchPoint) {
-          const existingNode = nodeMap.get(version.version.parentVersion);
-          if (existingNode) {
-            existingNode.data = {
-              ...existingNode.data,
-              onBranchCreate: () =>
-                handleBranchCreate(version.version.parentVersion!),
-              onBranchSwitch: () => handleBranchSwitch(version.branch.id),
-            };
-          }
-        }
+    // First pass: Build the parent-child relationships
+    Array.from(branches.values()).forEach((branch) => {
+      if (branch.parentBranchId) {
+        const siblings = childrenByParent.get(branch.parentBranchId) || [];
+        siblings.push(branch.id);
+        childrenByParent.set(branch.parentBranchId, siblings);
       }
     });
 
-    return {
-      nodes: Array.from(nodeMap.values()),
-      edges: edgeList,
-      branches: Array.from(branchMap.values()),
-      activeBranchId: versions[0]?.branch.id || "",
+    // Helper to calculate branch level
+    const calculateBranchLevel = (branchId: string, level = 0): number => {
+      if (branchLevels.has(branchId)) return branchLevels.get(branchId)!;
+
+      const branch = branches.get(branchId);
+      if (!branch || !branch.parentBranchId) {
+        branchLevels.set(branchId, level);
+        return level;
+      }
+
+      const parentLevel = calculateBranchLevel(branch.parentBranchId, level);
+      const currentLevel = parentLevel + 1;
+      branchLevels.set(branchId, currentLevel);
+      return currentLevel;
     };
-  }, [versions, selectedVersion, onVersionSelect]);
 
-  const [flowNodes, , onNodesChange] = useNodesState(nodes);
-  const [flowEdges, , onEdgesChange] = useEdgesState(edges);
+    // Process main branch first
+    const mainBranch = Array.from(branches.values()).find((b) => b.isMain);
+    if (mainBranch) {
+      calculateBranchLevel(mainBranch.id);
+      nodes.push({
+        id: mainBranch.id,
+        type: "branchNode",
+        position: { x: 250, y: 5 },
+        data: {
+          version: {
+            version: { parentVersion: mainBranch.parentVersionId },
+            branch: mainBranch,
+            isHead: true,
+          },
+          isHead: true,
+          isSelected: mainBranch.id === activeBranchId,
+          onSelect: () => onVersionSelect(mainBranch.currentVersionId),
+          onBranchCreate: () => onBranchCreate(mainBranch.currentVersionId),
+          onBranchSwitch: () => onBranchSwitch(mainBranch.id),
+        },
+        sourcePosition: Position.Bottom,
+        targetPosition: Position.Top,
+      });
+      processedBranches.add(mainBranch.id);
+    }
+
+    // Process remaining branches
+    const processChildren = (
+      parentId: string,
+      parentX: number,
+      level: number
+    ) => {
+      const children = childrenByParent.get(parentId) || [];
+      const totalWidth = (children.length - 1) * 300; // Space between siblings
+      let startX = parentX - totalWidth / 2;
+
+      children.forEach((childId) => {
+        if (processedBranches.has(childId)) return;
+
+        const branch = branches.get(childId)!;
+        const x = startX;
+        const y = level * 150;
+
+        nodes.push({
+          id: childId,
+          type: "branchNode",
+          position: { x, y },
+          data: {
+            version: {
+              version: { parentVersion: branch.parentVersionId },
+              branch,
+              isHead: true,
+            },
+            isHead: true,
+            isSelected: childId === activeBranchId,
+            onSelect: () => onVersionSelect(branch.currentVersionId),
+            onBranchCreate: () => onBranchCreate(branch.currentVersionId),
+            onBranchSwitch: () => onBranchSwitch(childId),
+          },
+          sourcePosition: Position.Bottom,
+          targetPosition: Position.Top,
+        });
+
+        edges.push({
+          id: `e${parentId}-${childId}`,
+          source: parentId,
+          target: childId,
+          type: "branchEdge",
+          data: { isBranchPoint: true },
+          markerEnd: MarkerType.Arrow,
+        });
+
+        processedBranches.add(childId);
+        processChildren(childId, x, level + 1);
+        startX += 300; // Move to next sibling position
+      });
+    };
+
+    if (mainBranch) {
+      processChildren(mainBranch.id, 250, 1);
+    }
+
+    return { initialNodes: nodes, initialEdges: edges };
+  }, [
+    branches,
+    activeBranchId,
+    onVersionSelect,
+    onBranchCreate,
+    onBranchSwitch,
+  ]);
+
+  const [flowNodes, , onNodesChange] = useNodesState(initialNodes);
+  const [flowEdges, , onEdgesChange] = useEdgesState(initialEdges);
 
   const handleNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
@@ -129,53 +166,30 @@ export default function BranchView({
     [onVersionSelect]
   );
 
-  const handleBranchCreate = useCallback(
-    async (parentVersionId: string) => {
-      setIsLoading(true);
-      try {
-        await onBranchCreate(parentVersionId);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [onBranchCreate]
-  );
-
-  const handleBranchSwitch = useCallback(
-    async (branchId: string) => {
-      setIsLoading(true);
-      try {
-        await onBranchSwitch(branchId);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [onBranchSwitch]
-  );
-
   return (
-    <div className="flex flex-col h-full">
-      <BranchControls
-        branches={branches}
-        activeBranchId={activeBranchId}
-        onBranchSwitch={handleBranchSwitch}
-        isLoading={isLoading}
-      />
-      <div className="flex-1">
-        <ReactFlow
-          nodes={flowNodes}
-          edges={flowEdges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onNodeClick={handleNodeClick}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          fitView
-        >
-          <Background />
-          <Controls />
-        </ReactFlow>
-      </div>
+    <div className="flex-1 h-full">
+      <ReactFlow
+        nodes={flowNodes}
+        edges={flowEdges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onNodeClick={handleNodeClick}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        fitView
+        style={{ backgroundColor: "#F7F9FB" }}
+        defaultEdgeOptions={{
+          type: "branchEdge",
+          animated: true,
+        }}
+        defaultViewport={{ x: 0, y: 0, zoom: 1.5 }}
+        minZoom={0.5}
+        maxZoom={2}
+      >
+        <MiniMap />
+        <Controls />
+        <Background color="#aaa" gap={16} />
+      </ReactFlow>
     </div>
   );
 }

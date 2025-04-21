@@ -1,5 +1,4 @@
-import { memo } from "react";
-import { BaseEdge, EdgeProps, getBezierPath } from "reactflow";
+import { BaseEdge, EdgeProps, getBezierPath, MarkerType } from "reactflow";
 
 type BranchEdgeProps = EdgeProps & {
   data?: {
@@ -7,13 +6,15 @@ type BranchEdgeProps = EdgeProps & {
   };
 };
 
-export default memo(function BranchEdge({
+export default function BranchEdge({
   sourceX,
   sourceY,
   targetX,
   targetY,
   sourcePosition,
   targetPosition,
+  style = {},
+  markerEnd,
   data,
 }: BranchEdgeProps) {
   const [edgePath] = getBezierPath({
@@ -28,10 +29,13 @@ export default memo(function BranchEdge({
   return (
     <BaseEdge
       path={edgePath}
+      markerEnd={markerEnd || MarkerType.Arrow}
       style={{
         strokeWidth: 2,
-        stroke: data?.isBranchPoint ? "#3B82F6" : "#D1D5DB",
+        stroke: data?.isBranchPoint ? "#ad46ff" : "#64748b",
+        strokeDasharray: "5 5",
+        ...style,
       }}
     />
   );
-});
+}

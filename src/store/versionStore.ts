@@ -312,7 +312,7 @@ export const useVersionStore = create<VersionStore>()(
       },
 
       createBranch: (parentVersionId: string) => {
-        const { versions, branches } = get();
+        const { versions, branches, activeBranchId } = get();
         const parentVersion = versions.get(Number(parentVersionId));
 
         if (!parentVersion) {
@@ -324,11 +324,16 @@ export const useVersionStore = create<VersionStore>()(
           };
         }
 
+        // If no active branch or the active branch doesn't exist, use main as parent
+        const parentBranchId = branches.has(activeBranchId)
+          ? activeBranchId
+          : MAIN_BRANCH_ID;
+
         const branchId = generateId();
         const branch: Branch = {
           id: branchId,
           name: `Branch ${branches.size}`,
-          parentBranchId: parentVersion.branchId,
+          parentBranchId,
           parentVersionId,
           currentVersionId: parentVersionId,
           createdAt: new Date().toISOString(),
