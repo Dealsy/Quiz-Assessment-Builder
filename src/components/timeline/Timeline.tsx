@@ -230,11 +230,11 @@ export default function Timeline({ editor, setShowTimeline }: TimelineProps) {
           <TabsContent value="branch" className="flex-1 px-4">
             <BranchView
               onVersionSelect={(versionId) => {
-                handleVersionChange(
-                  Number(versionId),
-                  branchVersionRange,
+                const version = Number(versionId);
+                setCurrentVersion(version);
+                handleVersionContentChange(
+                  version,
                   timelineEditor,
-                  setCurrentVersion,
                   getVersionContent
                 );
                 const branchVersions = getBranchVersions(activeBranchId);
@@ -254,7 +254,14 @@ export default function Timeline({ editor, setShowTimeline }: TimelineProps) {
                   }
                 }
               }}
-              onEdit={() => {
+              onEdit={(versionId) => {
+                const version = Number(versionId);
+                setCurrentVersion(version);
+                handleVersionContentChange(
+                  version,
+                  timelineEditor,
+                  getVersionContent
+                );
                 setShowTimeline(false);
               }}
             />

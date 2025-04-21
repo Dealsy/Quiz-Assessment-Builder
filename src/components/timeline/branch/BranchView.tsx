@@ -17,7 +17,7 @@ import BranchEdge from "./BranchEdge";
 
 type BranchViewProps = {
   onVersionSelect: (versionId: string) => void;
-  onEdit: () => void;
+  onEdit: (versionId: string) => void;
 };
 
 export default function BranchView({
@@ -35,7 +35,6 @@ export default function BranchView({
     () => Array.from(branches.values()),
     [branches]
   );
-  const branchCount = branchesArray.length;
 
   // Transform branches into nodes and edges
   const { initialNodes, initialEdges } = useMemo(() => {
@@ -86,8 +85,8 @@ export default function BranchView({
           },
           isHead: true,
           isSelected: mainBranch.id === activeBranchId,
-          onSelect: () => onVersionSelect(mainBranch.currentVersionId),
-          onEdit,
+          onSelect: () => onVersionSelect(mainBranch.parentVersionId),
+          onEdit: () => onEdit(mainBranch.parentVersionId),
         },
         sourcePosition: Position.Bottom,
         targetPosition: Position.Top,
@@ -124,8 +123,8 @@ export default function BranchView({
             },
             isHead: true,
             isSelected: childId === activeBranchId,
-            onSelect: () => onVersionSelect(branch.currentVersionId),
-            onEdit,
+            onSelect: () => onVersionSelect(branch.parentVersionId),
+            onEdit: () => onEdit(branch.parentVersionId),
           },
           sourcePosition: Position.Bottom,
           targetPosition: Position.Top,
@@ -151,7 +150,7 @@ export default function BranchView({
     }
 
     return { initialNodes: nodes, initialEdges: edges };
-  }, [branches, activeBranchId, onVersionSelect, branchCount, onEdit]);
+  }, [branches, activeBranchId, onVersionSelect, onEdit, branchesArray]);
 
   const [flowNodes, , onNodesChange] = useNodesState(initialNodes);
   const [flowEdges, , onEdgesChange] = useEdgesState(initialEdges);
