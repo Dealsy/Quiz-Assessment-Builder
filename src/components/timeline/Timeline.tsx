@@ -5,10 +5,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Slider } from "../ui/slider";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { EditorContent } from "@tiptap/react";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { WordCount } from "../tiptap/word-count";
 import { useVersionStore } from "@/store/versionStore";
 import { StarterKit } from "@tiptap/starter-kit";
+import BranchView from "./branch/BranchView";
 
 type TimelineProps = {
   editor: ReturnType<typeof useEditor>;
@@ -22,6 +23,10 @@ export default function Timeline({ editor }: TimelineProps) {
     setCurrentVersion,
     hasContent,
     isInitialEditing,
+    getBranchVersions,
+    createBranch,
+    switchBranch,
+    getActiveBranch,
   } = useVersionStore();
 
   const minVersion = 1;
@@ -37,6 +42,18 @@ export default function Timeline({ editor }: TimelineProps) {
     ],
     editable: false,
   });
+
+  const branchVersions = useMemo(() => {
+    if (!hasContent || isInitialEditing) {
+      return [];
+    }
+    const activeBranch = getActiveBranch();
+    if (!activeBranch) {
+      return [];
+    }
+    const result = getBranchVersions(activeBranch.id);
+    return result.data || [];
+  }, [getBranchVersions, getActiveBranch, hasContent, isInitialEditing]);
 
   const handleVersionChange = useCallback(
     (version: number) => {
@@ -79,6 +96,31 @@ export default function Timeline({ editor }: TimelineProps) {
       handleVersionChange(currentVersion + 1);
     }
   }, [currentVersion, maxVersion, handleVersionChange]);
+
+  const handleBranchCreate = useCallback(
+    (parentVersionId: string) => {
+      const result = createBranch(parentVersionId);
+      if (result.error) {
+        console.error(result.error.message);
+        return;
+      }
+      // Switch to the newly created branch
+      if (result.data) {
+        switchBranch(result.data.id);
+      }
+    },
+    [createBranch, switchBranch]
+  );
+
+  const handleBranchSwitch = useCallback(
+    (branchId: string) => {
+      const result = switchBranch(branchId);
+      if (result.error) {
+        console.error(result.error.message);
+      }
+    },
+    [switchBranch]
+  );
 
   // Initialize with current version content
   useEffect(() => {
@@ -185,10 +227,16 @@ export default function Timeline({ editor }: TimelineProps) {
             </div>
           </TabsContent>
 
-          <TabsContent value="branch" className="flex-1">
-            <div className="h-full flex items-center justify-center text-muted-foreground">
-              Branch view coming soon...
-            </div>
+          <TabsContent value="branch" className="flex-1 px-4">
+            <BranchView
+              versions={branchVersions}
+              selectedVersion={currentVersion.toString()}
+              onBranchCreate={handleBranchCreate}
+              onBranchSwitch={handleBranchSwitch}
+              onVersionSelect={(versionId) =>
+                handleVersionChange(Number(versionId))
+              }
+            />
           </TabsContent>
         </Tabs>
       </Card>
