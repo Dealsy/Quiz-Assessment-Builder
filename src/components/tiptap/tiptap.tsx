@@ -1,18 +1,13 @@
-import {
-  EditorContent,
-  useEditor,
-  FloatingMenu,
-  BubbleMenu,
-  Editor,
-} from "@tiptap/react";
+import { useEditor, Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { WordCount } from "./word-count";
 import Toolbar from "./toolbar";
 import { useVersionStore } from "../../store/versionStore";
-import { format } from "date-fns";
 import { useCallback, useEffect } from "react";
 import { Transaction } from "@tiptap/pm/state";
 import { Step } from "prosemirror-transform";
+import EditorContent from "./EditorContent";
+import VersionStatus from "./VersionStatus";
 
 type TiptapProps = {
   editor?: ReturnType<typeof useEditor>;
@@ -46,7 +41,7 @@ export default function Tiptap({ editor: externalEditor }: TiptapProps) {
   const internalEditor = useEditor({
     extensions: [
       StarterKit.configure({
-        history: false, // Disable history as we're using our own version control
+        history: false,
       }),
     ],
     content: "<p>Hello World!</p>",
@@ -71,48 +66,25 @@ export default function Tiptap({ editor: externalEditor }: TiptapProps) {
 
   const versionResult = getVersionContent(currentVersion);
   const hasError = versionResult.error !== undefined;
+  const showVersionUI = hasContent || isDirty || editor.getText().length > 0;
 
   return (
     <div className="p-6 max-w-4xl mx-auto mt-24 border-2 rounded-lg shadow-lg">
       <div className="rounded-lg border dark:border-gray-700 overflow-hidden">
         <div className="flex items-center justify-between p-2 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
           <Toolbar editor={editor} />
-          {hasContent && (
-            <div className="flex items-center gap-4 text-sm">
-              {!isInitialEditing && (
-                <span className="text-gray-500 dark:text-gray-400">
-                  Version {currentVersion}
-                </span>
-              )}
-              <span className="text-gray-300 dark:text-gray-600">•</span>
-              {isDirty ? (
-                <span className="text-gray-500 dark:text-gray-400">
-                  Saving...
-                </span>
-              ) : !isInitialEditing && hasError ? (
-                <span className="text-red-500 dark:text-red-400">
-                  {versionResult.error?.message}
-                </span>
-              ) : (
-                <span className="text-gray-500 dark:text-gray-400">
-                  Last saved: {format(lastSaved, "h:mm:ss a")}
-                </span>
-              )}
-            </div>
+          {showVersionUI && (
+            <VersionStatus
+              currentVersion={currentVersion}
+              lastSaved={lastSaved}
+              isDirty={isDirty}
+              hasError={hasError}
+              isInitialEditing={isInitialEditing}
+              errorMessage={versionResult.error?.message}
+            />
           )}
         </div>
-        <div className="relative">
-          <EditorContent
-            editor={editor}
-            className="prose dark:prose-invert max-w-none p-4 min-h-[400px]"
-          />
-          <FloatingMenu editor={editor}>
-            <Toolbar editor={editor} />
-          </FloatingMenu>
-          <BubbleMenu editor={editor}>
-            <Toolbar editor={editor} />
-          </BubbleMenu>
-        </div>
+        <EditorContent editor={editor} />
         <div className="flex items-center justify-between p-2 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
           <WordCount editor={editor} />
         </div>

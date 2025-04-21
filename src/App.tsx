@@ -5,6 +5,7 @@ import Timeline from "./components/timeline/Timeline";
 import { Button } from "./components/ui/button";
 import { useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { Toaster } from "sonner";
 
 const extensions = [StarterKit];
 const content = "<p>Hello World!</p>";
@@ -22,6 +23,7 @@ export default function App() {
 
   return (
     <>
+      <Toaster richColors closeButton position="bottom-right" />
       <Nav />
       <div className="flex justify-center mt-4">
         <Button
@@ -31,7 +33,11 @@ export default function App() {
           {showTimeline ? "Hide Timeline" : "View Timeline"}
         </Button>
       </div>
-      {showTimeline ? <Timeline editor={editor} /> : <Tiptap />}
+      {showTimeline ? (
+        <Timeline editor={editor} setShowTimeline={setShowTimeline} />
+      ) : (
+        <Tiptap />
+      )}
     </>
   );
 }
